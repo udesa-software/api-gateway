@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
 
@@ -38,18 +39,85 @@ const USERS_SERVICE_URL    = process.env.USERS_SERVICE_URL    || 'http://localho
 const FRIENDS_SERVICE_URL  = process.env.FRIENDS_SERVICE_URL  || 'http://localhost:3001';
 const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
 
+const JWT_SECRET       = process.env.JWT_SECRET;
+const INTERNAL_SECRET  = process.env.INTERNAL_SECRET;
+
+// ─── RUTAS PÚBLICAS (no requieren JWT) ───────────────────────────────────────
+// Cualquier path que empiece con alguno de estos no pasa por verifyToken
+const PUBLIC_PATHS = [
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/users/register',
+  '/api/users/verify-email',
+  '/api/users/resend-verification',
+  '/api/auth/forgot-password',
+  '/api/auth/reset-password',
+  '/api/admin/auth/login',
+];
+
+function isPublicPath(path) {
+  return PUBLIC_PATHS.some((p) => path.startsWith(p));
+}
+
+// ─── VERIFICACIÓN DE TOKEN_VERSION ───────────────────────────────────────────
+// Si el request trae JWT, verifica firma + llama al users service para
+// confirmar que el token no fue revocado (token_version vigente).
+// Rutas públicas y requests sin token pasan directo.
+async function verifyToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+
+  // Sin token o ruta pública → dejar pasar (el microservicio rechazará si lo necesita)
+  if (!authHeader || !authHeader.startsWith('Bearer ') || isPublicPath(req.path)) {
+    return next();
+  }
+
+  const token = authHeader.slice(7);
+
+  // 1. Verificar firma del JWT
+  let payload;
+  try {
+    payload = jwt.verify(token, JWT_SECRET);
+  } catch {
+    return res.status(401).json({ error: 'Token inválido o expirado' });
+  }
+
+  // 2. Los tokens de admin tienen payload.role — el users service los valida internamente
+  if (payload.role) {
+    return next();
+  }
+
+  // 3. Verificar token_version contra users service
+  try {
+    const response = await fetch(`${USERS_SERVICE_URL}/api/internal/validate-token`, {
+      headers: {
+        'authorization': authHeader,
+        'x-internal-secret': INTERNAL_SECRET,
+      },
+    });
+
+    if (!response.ok) {
+      return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
+    }
+  } catch {
+    return res.status(503).json({ error: 'No se pudo verificar el token. Intentá de nuevo.' });
+  }
+
+  next();
+}
+
+app.use(verifyToken);
+
 // ─── HEALTHCHECK DEL GATEWAY ─────────────────────────────────────────────────
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
 // ─── PROXY HACIA USERS SERVICE ───────────────────────────────────────────────
-// Maneja: /api/users/*, /api/auth/*, /api/admin/*
 // pathFilter en lugar de app.use('/api/auth', ...) para que Express no stripee el prefijo
 app.use(createProxyMiddleware({
   target: USERS_SERVICE_URL,
-  changeOrigin: true, //Cuando el gateway reenvía el request, en el header Host originalmente dice localhost:4000 (porque así lo mandó la app). Con changeOrigin: true el proxy cambia ese header a users:3000 antes de mandarlo. Algunos servidores rechazan requests donde el Host no coincide con ellos mismos, por eso se cambia.
-  pathFilter: ['/api/users', '/api/auth', '/api/admin'],
+  changeOrigin: true,
+  pathFilter: ['/api/users', '/api/auth', '/api/admin', '/api/admin-auth'],
 }));
 
 // ─── PROXY HACIA FRIENDS SERVICE ─────────────────────────────────────────────
