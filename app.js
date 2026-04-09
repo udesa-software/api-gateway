@@ -7,7 +7,7 @@ const { rateLimit } = require('express-rate-limit');
 
 const app = express();
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
+//  CORS 
 // Se configura una sola vez acá — los microservicios no necesitan cors propio
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
@@ -15,7 +15,7 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 
-// ─── RATE LIMITING GLOBAL ────────────────────────────────────────────────────
+//  RATE LIMITING GLOBAL 
 // Límite general: 100 requests cada 15 minutos por IP
 // Los microservicios pueden tener sus propios límites más específicos
 const globalRateLimiter = rateLimit({
@@ -27,14 +27,14 @@ const globalRateLimiter = rateLimit({
 
 app.use(globalRateLimiter);
 
-// ─── HEADER DE TRAZABILIDAD ──────────────────────────────────────────────────
+//  HEADER DE TRAZABILIDAD 
 // identifica qué instancia del gateway respondió
 app.use((req, _res, next) => {
   req.headers['x-gateway'] = 'udesa-migos-gateway';
   next();
 });
 
-// ─── URLs DE LOS MICROSERVICIOS ──────────────────────────────────────────────
+//  URLs DE LOS MICROSERVICIOS 
 const USERS_SERVICE_URL    = process.env.USERS_SERVICE_URL    || 'http://localhost:3000';
 const FRIENDS_SERVICE_URL  = process.env.FRIENDS_SERVICE_URL  || 'http://localhost:3001';
 const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
@@ -42,7 +42,7 @@ const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localho
 const JWT_SECRET       = process.env.JWT_SECRET;
 const INTERNAL_SECRET  = process.env.INTERNAL_SECRET;
 
-// ─── RUTAS PÚBLICAS (no requieren JWT) ───────────────────────────────────────
+//  RUTAS PÚBLICAS (no requieren JWT) 
 // Cualquier path que empiece con alguno de estos no pasa por verifyToken
 const PUBLIC_PATHS = [
   '/api/auth/login',
@@ -59,7 +59,7 @@ function isPublicPath(path) {
   return PUBLIC_PATHS.some((p) => path.startsWith(p));
 }
 
-// ─── VERIFICACIÓN DE TOKEN_VERSION ───────────────────────────────────────────
+//  VERIFICACIÓN DE TOKEN_VERSION 
 // Si el request trae JWT, verifica firma + llama al users service para
 // confirmar que el token no fue revocado (token_version vigente).
 // Rutas públicas y requests sin token pasan directo.
@@ -107,12 +107,12 @@ async function verifyToken(req, res, next) {
 
 app.use(verifyToken);
 
-// ─── HEALTHCHECK DEL GATEWAY ─────────────────────────────────────────────────
+//  HEALTHCHECK DEL GATEWAY 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
-// ─── PROXY HACIA USERS SERVICE ───────────────────────────────────────────────
+//  PROXY HACIA USERS SERVICE 
 // pathFilter en lugar de app.use('/api/auth', ...) para que Express no stripee el prefijo
 app.use(createProxyMiddleware({
   target: USERS_SERVICE_URL,
@@ -120,21 +120,21 @@ app.use(createProxyMiddleware({
   pathFilter: ['/api/users', '/api/auth', '/api/admin', '/api/admin-auth'],
 }));
 
-// ─── PROXY HACIA FRIENDS SERVICE ─────────────────────────────────────────────
+//  PROXY HACIA FRIENDS SERVICE 
 app.use(createProxyMiddleware({
   target: FRIENDS_SERVICE_URL,
   changeOrigin: true,
   pathFilter: '/api/friends',
 }));
 
-// ─── PROXY HACIA LOCATION SERVICE ────────────────────────────────────────────
+//  PROXY HACIA LOCATION SERVICE 
 app.use(createProxyMiddleware({
   target: LOCATION_SERVICE_URL,
   changeOrigin: true,
   pathFilter: '/api/locations',
 }));
 
-// ─── RUTA NO ENCONTRADA ───────────────────────────────────────────────────────
+//  RUTA NO ENCONTRADA 
 app.use((_req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
