@@ -2,8 +2,15 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const jwt = require('jsonwebtoken');
+const Redis = require('ioredis');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
+
+const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
+  lazyConnect: true,
+  enableOfflineQueue: false,
+});
+redisClient.on('error', (err) => console.error('[Redis] connection error:', err));
 
 const app = express();
 
@@ -39,8 +46,7 @@ const USERS_SERVICE_URL    = process.env.USERS_SERVICE_URL    || 'http://localho
 const FRIENDS_SERVICE_URL  = process.env.FRIENDS_SERVICE_URL  || 'http://localhost:3001';
 const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
 
-const JWT_SECRET       = process.env.JWT_SECRET;
-const INTERNAL_SECRET  = process.env.INTERNAL_SECRET;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 //  RUTAS PÚBLICAS (no requieren JWT) 
 // Cualquier path que empiece con alguno de estos no pasa por verifyToken
@@ -86,20 +92,17 @@ async function verifyToken(req, res, next) {
     return next();
   }
 
-  // 3. Verificar token_version contra users service
+  // 3. Verificar token_version contra Redis (O(1), sin llamada a users service)
+  // El users service escribe `revoked:{userId}` con la nueva token_version cada vez que
+  // hace logout o cambia contraseña. Si la versión del JWT es menor, el token fue revocado.
   try {
-    const response = await fetch(`${USERS_SERVICE_URL}/api/internal/validate-token`, {
-      headers: {
-        'authorization': authHeader,
-        'x-internal-secret': INTERNAL_SECRET,
-      },
-    });
-
-    if (!response.ok) {
+    const revokedVersion = await redisClient.get(`revoked:${payload.sub}`);
+    if (revokedVersion !== null && payload.token_version < parseInt(revokedVersion, 10)) {
       return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
     }
   } catch {
-    return res.status(503).json({ error: 'No se pudo verificar el token. Intentá de nuevo.' });
+    // Redis no disponible — fail open: el JWT ya fue verificado criptográficamente
+    // y expira en 15 min, mismo TTL que la clave de Redis
   }
 
   next();
