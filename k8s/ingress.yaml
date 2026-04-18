@@ -1,64 +1,26 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: udesamigos-ingress
-  namespace: udesamigos
+  name: group-3-ingress
+  namespace: group-3
   annotations:
-    # scheme: internet-facing → el ALB tiene una IP pública accesible desde internet.
-    # La alternativa (internal) crearía un ALB solo accesible dentro de la VPC.
     alb.ingress.kubernetes.io/scheme: internet-facing
-
-    # target-type: ip → el ALB manda el tráfico directamente a la IP del pod.
-    # Es más eficiente que "instance" (que pasa por el NodePort del nodo EC2 primero).
     alb.ingress.kubernetes.io/target-type: ip
-
-    # listen-ports: el ALB escucha en puerto 80 (HTTP) y 443 (HTTPS).
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-
-    # ssl-redirect: todo tráfico HTTP entrante por puerto 80 se redirige
-    # automáticamente a HTTPS en puerto 443.
     alb.ingress.kubernetes.io/ssl-redirect: "443"
-
-    # certificate-arn: ARN del certificado SSL wildcard de ACM (AWS Certificate Manager).
-    # Es gratuito y se renueva automáticamente. El mismo certificado cubre
-    # *.tds-linar.udesa.edu.ar para todos los equipos.
     alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:172786533418:certificate/a13f6422-750b-496d-b907-a1690adfa0a1
-
-    # group.name: CRÍTICO para multi-tenancy.
-    # Todos los Ingress con el mismo group.name comparten UN SOLO ALB.
-    # Sin esta anotación, se crearía un ALB nuevo (~$22/mes desperdiciados).
     alb.ingress.kubernetes.io/group.name: tds-shared
-
-    # group.order: prioridad de evaluación de las reglas en el ALB compartido.
-    # Número menor = mayor prioridad. feedesa usa 100, los grupos de estudiantes
-    # usan números del 1 al 6. Ajustar según el número de grupo asignado.
-    alb.ingress.kubernetes.io/group.order: "1"
-
+    alb.ingress.kubernetes.io/group.order: "3"
 spec:
-  # ingressClassName: alb indica que este Ingress lo gestiona el AWS Load Balancer
-  # Controller (un pod en kube-system que observa Ingress y crea/actualiza ALBs en AWS).
   ingressClassName: alb
-
   rules:
-    # host: el dominio exacto que el ALB usa para enrutar.
-    # El ALB mira el header "Host" de cada request HTTP y lo compara con estas reglas.
-    # Ajustar "g1" al subdominio asignado a este equipo (g1, g2, ..., g6).
-    - host: g1.tds-linar.udesa.edu.ar
+    - host: g3.tds-linar.udesa.edu.ar
       http:
         paths:
-          # Solo exponemos el prefijo /api hacia el cluster.
-          # El frontend estático (/, /login, etc.) lo sirve CloudFront desde S3.
-          # Esta separación es la que permite que CloudFront funcione como CDN
-          # para el frontend y como proxy para la API.
           - path: /api
-            # Prefix: cualquier path que EMPIECE con /api se rutea aquí.
-            # Ej: /api/users/123, /api/auth/login → todos llegan al api-gateway.
             pathType: Prefix
             backend:
               service:
-                # Nombre del Service al que se envía el tráfico.
-                # Debe coincidir con metadata.name en service.yaml.
                 name: api-gateway
                 port:
-                  # Puerto del Service (no del pod directamente).
                   number: 4000

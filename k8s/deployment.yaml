@@ -2,60 +2,41 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway
-  namespace: udesamigos
+  namespace: group-3
   labels:
     app: api-gateway
 spec:
-  # Cantidad de pods que Kubernetes va a mantener vivos en todo momento.
-  # Si uno muere a las 3am, K8s crea uno nuevo automáticamente (self-healing).
   replicas: 1
-
-  # El selector le dice al Deployment qué pods son "suyos".
-  # DEBE coincidir exactamente con template.metadata.labels de abajo.
   selector:
     matchLabels:
       app: api-gateway
-
-  # Estrategia de actualización: RollingUpdate sube la versión nueva
-  # de a poco antes de bajar la vieja, logrando zero-downtime deploys.
   strategy:
     type: RollingUpdate
-
-  # template describe el pod que se va a crear (es la "receta" del pod)
   template:
     metadata:
       labels:
-        # Este label DEBE coincidir con selector.matchLabels de arriba
-        # y también es lo que usa el Service para encontrar estos pods
         app: api-gateway
     spec:
       containers:
         - name: api-gateway
-          # URI completa de ECR: ACCOUNT_ID.dkr.ecr.REGION.amazonaws.com/PREFIJO/SERVICIO:TAG
-          # El tag :latest se reemplaza por el SHA del commit en el pipeline de CI/CD
           image: <ECR_URI>/udesamigos/api-gateway:latest
-
-          # Always: fuerza re-pull de la imagen en cada restart, incluso si el tag es el mismo.
-          # Necesario cuando se usa :latest para garantizar que siempre corre la versión más nueva.
           imagePullPolicy: Always
-
-          # El puerto que expone el contenedor. Debe coincidir con el PORT de la app
-          # y con el targetPort del Service.
           ports:
             - containerPort: 4000
-
-          # Variables de entorno NO sensibles: vienen del ConfigMap
           envFrom:
             - configMapRef:
                 name: api-gateway-config
-
-          # Variables de entorno SENSIBLES: se inyectan una por una desde el Secret
           env:
             - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
                   name: api-gateway-secret
                   key: JWT_SECRET
+            - name: ADMIN_JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: ADMIN_JWT_SECRET
             - name: REDIS_URL
               valueFrom:
                 secretKeyRef:
@@ -66,39 +47,20 @@ spec:
                 secretKeyRef:
                   name: api-gateway-secret
                   key: INTERNAL_SECRET
-
-          # livenessProbe: Kubernetes verifica que el pod sigue vivo.
-          # Si falla 3 veces seguidas → reinicia el contenedor (OOMKilled, deadlock, etc.)
           livenessProbe:
             httpGet:
               path: /health
               port: 4000
-            # Espera 30 segundos antes del primer chequeo para que la app arranque
             initialDelaySeconds: 30
-            # Chequea cada 10 segundos
             periodSeconds: 10
-            # 3 fallos consecutivos → reinicia
             failureThreshold: 3
-
-          # readinessProbe: Kubernetes verifica si el pod está listo para recibir tráfico.
-          # Si falla → lo saca del Service (deja de recibir requests) sin reiniciarlo.
-          # Útil durante el arranque o cuando el pod está ocupado.
           readinessProbe:
             httpGet:
               path: /health
               port: 4000
-            # Chequea antes que liveness para sacar del balanceo rápido si no está listo
             initialDelaySeconds: 10
             periodSeconds: 5
             failureThreshold: 3
-
-          # Recursos garantizados y límites por contenedor.
-          # requests: lo que K8s reserva en el nodo para este pod (garantizado)
-          # limits: el techo máximo que el contenedor puede usar
-          #   - Si supera RAM limit → OOMKilled (el pod muere)
-          #   - Si supera CPU limit → throttled (se frena pero no muere)
-          # Importante en multi-tenancy: sin limits, un memory leak tuyo puede
-          # matar pods de otro equipo.
           resources:
             requests:
               memory: "128Mi"

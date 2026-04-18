@@ -2,19 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-gateway-config
-  namespace: udesamigos
+  namespace: group-3
 data:
-  # Puerto en el que corre la app (coincide con containerPort del Deployment)
   PORT: "4000"
-
-  # URLs internas de los microservicios dentro del cluster.
-  # Formato: http://<nombre-del-Service>:<puerto>
-  # CoreDNS (el DNS interno de Kubernetes) resuelve el nombre del Service
-  # a la IP del pod correspondiente dentro del mismo namespace.
   USERS_SERVICE_URL: "http://users:3000"
   FRIENDS_SERVICE_URL: "http://friends:3000"
   LOCATION_SERVICE_URL: "http://location:3000"
-
-  # Orígenes permitidos para CORS (separados por coma).
-  # Incluye el dominio de producción de CloudFront para el frontend.
-  ALLOWED_ORIGINS: "https://g1.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
+  ALLOWED_ORIGINS: "https://g3.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
