@@ -1,3 +1,5 @@
 node_modules/
 .env
 *.log
+# El secret renderizado con valores reales nunca va a Git
+k8s/secret.yaml
