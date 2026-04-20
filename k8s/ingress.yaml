@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: group-3-ingress
+  namespace: group-3
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-2:172786533418:certificate/a13f6422-750b-496d-b907-a1690adfa0a1
+    alb.ingress.kubernetes.io/group.name: tds-shared
+    alb.ingress.kubernetes.io/group.order: "3"
+spec:
+  ingressClassName: alb
+  rules:
+    - host: g3.tds-linar.udesa.edu.ar
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 4000
