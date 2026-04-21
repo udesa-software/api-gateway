@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: api-gateway
-  namespace: group-3
+  namespace: tds-group-3
   labels:
     app: api-gateway
 spec:
@@ -11,7 +11,7 @@ spec:
     matchLabels:
       app: api-gateway
   strategy:
-    type: RollingUpdate
+    type: Recreate
   template:
     metadata:
       labels:
@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
         - name: api-gateway
-          image: <ECR_URI>/udesamigos/api-gateway:latest
+          image: 172786533418.dkr.ecr.us-east-2.amazonaws.com/tds-group-3/api-gateway:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 4000

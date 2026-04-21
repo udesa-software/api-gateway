@@ -2,10 +2,10 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: api-gateway-config
-  namespace: group-3
+  namespace: tds-group-3
 data:
   PORT: "4000"
   USERS_SERVICE_URL: "http://users:3000"
   FRIENDS_SERVICE_URL: "http://friends:3000"
   LOCATION_SERVICE_URL: "http://location:3000"
-  ALLOWED_ORIGINS: "https://g3.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
+  ALLOWED_ORIGINS: "https://tds-group-3.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
