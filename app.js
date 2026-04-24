@@ -58,6 +58,7 @@ const PUBLIC_PATHS = [
   '/api/users/resend-verification',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
+  '/api/auth/refresh',
   '/api/admin/auth/login',
 ];
 
