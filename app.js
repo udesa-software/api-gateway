@@ -42,11 +42,13 @@ app.use((req, _res, next) => {
 });
 
 //  URLs DE LOS MICROSERVICIOS 
-const USERS_SERVICE_URL    = process.env.USERS_SERVICE_URL    || 'http://localhost:3000';
-const FRIENDS_SERVICE_URL  = process.env.FRIENDS_SERVICE_URL  || 'http://localhost:3001';
-const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
+const USERS_SERVICE_URL       = process.env.USERS_SERVICE_URL       || 'http://localhost:3000';
+const FRIENDS_SERVICE_URL     = process.env.FRIENDS_SERVICE_URL     || 'http://localhost:3001';
+const LOCATION_SERVICE_URL    = process.env.LOCATION_SERVICE_URL    || 'http://localhost:3002';
+const BACKOFFICE_SERVICE_URL  = process.env.BACKOFFICE_SERVICE_URL  || 'http://localhost:3003';
 
 const JWT_SECRET = process.env.JWT_SECRET;
+const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
 //  RUTAS PÚBLICAS (no requieren JWT) 
 // Cualquier path que empiece con alguno de estos no pasa por verifyToken
@@ -80,15 +82,19 @@ async function verifyToken(req, res, next) {
 
   const token = authHeader.slice(7);
 
-  // 1. Verificar firma del JWT
+  // 1. Determinar qué secret usar según la ruta
+  const isAdminRoute = req.path.startsWith('/api/admin');
+  const secret = isAdminRoute ? ADMIN_JWT_SECRET : JWT_SECRET;
+
+  // 2. Verificar firma del JWT
   let payload;
   try {
-    payload = jwt.verify(token, JWT_SECRET);
+    payload = jwt.verify(token, secret);
   } catch {
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 
-  // 2. Los tokens de admin tienen payload.role — el users service los valida internamente
+  // 3. Los tokens de admin tienen payload.role — el users service los valida internamente
   if (payload.role) {
     return next();
   }
@@ -121,7 +127,14 @@ app.get('/health', (_req, res) => {
 app.use(createProxyMiddleware({
   target: USERS_SERVICE_URL,
   changeOrigin: true,
-  pathFilter: ['/api/users', '/api/auth', '/api/admin', '/api/admin-auth'],
+  pathFilter: ['/api/users', '/api/auth'],
+}));
+
+//  PROXY HACIA BACKOFFICE SERVICE
+app.use(createProxyMiddleware({
+  target: BACKOFFICE_SERVICE_URL,
+  changeOrigin: true,
+  pathFilter: '/api/admin',
 }));
 
 //  PROXY HACIA FRIENDS SERVICE 
