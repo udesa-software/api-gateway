@@ -26,17 +26,17 @@ spec:
 apiVersion: v1
 kind: LimitRange
 metadata:
- name: default-limits
- namespace: tds-group-3
+  name: tds-group-3-default-limits
+  namespace: tds-group-3
 spec:
  limits:
  - default:
- cpu: "500m"
- memory: "512Mi"
- defaultRequest: 
- cpu: "100m"
- memory: "256Mi"
- max:
- cpu: "1000m"
- memory: "1.5Gi"
- type: Container
+    cpu: "500m"
+    memory: "512Mi"
+   defaultRequest: 
+    cpu: "100m"
+    memory: "256Mi"
+   max:
+    cpu: "1000m"
+    memory: "1.5Gi"
+   type: Container
