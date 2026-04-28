@@ -68,6 +68,8 @@ const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 //  RUTAS PÚBLICAS (no requieren JWT) 
 // Cualquier path que empiece con alguno de estos no pasa por verifyToken
 const PUBLIC_PATHS = [
+  '/',
+  '/health',
   '/api/auth/login',
   '/api/auth/register',
   '/api/users/register',
