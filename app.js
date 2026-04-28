@@ -22,8 +22,8 @@ if (REDIS_URL) {
 
 const app = express();
 
-// Confiar en el proxy (Ingress/Load Balancer) para identificar IPs reales
-app.set('trust proxy', true);
+// Confiar en el primer proxy (AWS ALB) para identificar IPs reales de forma segura
+app.set('trust proxy', 1);
 
 //  CORS 
 // Se configura una sola vez acá — los microservicios no necesitan cors propio
