@@ -6,11 +6,19 @@ const Redis = require('ioredis');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
 
-const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379', {
-  lazyConnect: true,
-  enableOfflineQueue: false,
-});
-redisClient.on('error', (err) => console.error('[Redis] connection error:', err));
+const REDIS_URL = process.env.REDIS_URL;
+let redisClient = null;
+
+if (REDIS_URL) {
+  redisClient = new Redis(REDIS_URL, {
+    lazyConnect: true,
+    enableOfflineQueue: false,
+    commandTimeout: 2000,
+  });
+  redisClient.on('error', (err) => console.error('[Redis] connection error:', err.message));
+} else {
+  console.log('[Redis] No REDIS_URL provided. Skipping Redis features (token revocation).');
+}
 
 const app = express();
 
@@ -19,6 +27,10 @@ const app = express();
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:3001', 'http://localhost:8081']; // web backoffice + expo
+
+app.get(['/', '/health'], (_req, res) => {
+  res.json({ status: 'ok', service: 'api-gateway' });
+});
 
 app.use(cors({ origin: ALLOWED_ORIGINS, credentials: true }));
 
@@ -100,16 +112,16 @@ async function verifyToken(req, res, next) {
   }
 
   // 3. Verificar token_version contra Redis (O(1), sin llamada a users service)
-  // El users service escribe `revoked:{userId}` con la nueva token_version cada vez que
-  // hace logout o cambia contraseña. Si la versión del JWT es menor, el token fue revocado.
-  try {
-    const revokedVersion = await redisClient.get(`revoked:${payload.sub}`);
-    if (revokedVersion !== null && payload.token_version < parseInt(revokedVersion, 10)) {
-      return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
+  // Se saltea si Redis no está configurado.
+  if (redisClient) {
+    try {
+      const revokedVersion = await redisClient.get(`revoked:${payload.sub}`);
+      if (revokedVersion !== null && payload.token_version < parseInt(revokedVersion, 10)) {
+        return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
+      }
+    } catch (err) {
+      console.error('[Redis] skip verification due to error:', err.message);
     }
-  } catch {
-    // Redis no disponible — fail open: el JWT ya fue verificado criptográficamente
-    // y expira en 15 min, mismo TTL que la clave de Redis
   }
 
   next();
@@ -117,10 +129,7 @@ async function verifyToken(req, res, next) {
 
 app.use(verifyToken);
 
-//  HEALTHCHECK DEL GATEWAY 
-app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'api-gateway' });
-});
+
 
 //  PROXY HACIA USERS SERVICE 
 // pathFilter en lugar de app.use('/api/auth', ...) para que Express no stripee el prefijo
