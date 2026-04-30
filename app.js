@@ -31,7 +31,7 @@ const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:3001', 'http://localhost:8081']; // web backoffice + expo
 
-app.get(['/', '/health'], (_req, res) => {
+app.get(['/', '/health', '/api', '/api/health'], (_req, res) => {
   res.json({ status: 'ok', service: 'api-gateway' });
 });
 
@@ -70,6 +70,8 @@ const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 const PUBLIC_PATHS = [
   '/',
   '/health',
+  '/api',
+  '/api/health',
   '/api/auth/login',
   '/api/auth/register',
   '/api/users/register',
