@@ -24,3 +24,17 @@ spec:
                 name: api-gateway
                 port:
                   number: 4000
+          - path: /health
+            pathType: Exact
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 4000
+          - path: /api/health
+            pathType: Exact
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 4000
