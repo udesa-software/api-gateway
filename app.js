@@ -67,13 +67,12 @@ const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
 //  RUTAS PÚBLICAS (no requieren JWT) 
 const PUBLIC_PATHS_PREFIX = [
-  '/api',
   '/',
   '/api/auth/login',
   '/api/auth/register',
   '/api/users/register',
-  '/api/users/verify-email',
-  '/api/users/resend-verification',
+  '/api/auth/verify-email',
+  '/api/auth/resend-verification',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
   '/api/auth/refresh',
