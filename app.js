@@ -52,15 +52,16 @@ app.use(globalRateLimiter);
 //  HEADER DE TRAZABILIDAD 
 // identifica qué instancia del gateway respondió
 app.use((req, _res, next) => {
+  console.log(`[Gateway] ${req.method} ${req.url}`);
   req.headers['x-gateway'] = 'udesa-migos-gateway';
   next();
 });
 
 //  URLs DE LOS MICROSERVICIOS 
-const USERS_SERVICE_URL       = process.env.USERS_SERVICE_URL       || 'http://localhost:3000';
-const FRIENDS_SERVICE_URL     = process.env.FRIENDS_SERVICE_URL     || 'http://localhost:3001';
-const LOCATION_SERVICE_URL    = process.env.LOCATION_SERVICE_URL    || 'http://localhost:3002';
-const BACKOFFICE_SERVICE_URL  = process.env.BACKOFFICE_SERVICE_URL  || 'http://localhost:3003';
+const USERS_SERVICE_URL = process.env.USERS_SERVICE_URL || 'http://localhost:3000';
+const FRIENDS_SERVICE_URL = process.env.FRIENDS_SERVICE_URL || 'http://localhost:3001';
+const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
+const BACKOFFICE_SERVICE_URL = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:3003';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
@@ -146,6 +147,9 @@ app.use(createProxyMiddleware({
   target: USERS_SERVICE_URL,
   changeOrigin: true,
   pathFilter: ['/api/users', '/api/auth'],
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`[Gateway] Proxy response from UsersService: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+  }
 }));
 
 //  PROXY HACIA BACKOFFICE SERVICE
@@ -170,7 +174,8 @@ app.use(createProxyMiddleware({
 }));
 
 //  RUTA NO ENCONTRADA 
-app.use((_req, res) => {
+app.use((req, res) => {
+  console.log(`[Gateway] 404 Not Found: ${req.method} ${req.url}`);
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
