@@ -27,8 +27,8 @@ app.set('trust proxy', 1);
 
 //  CORS 
 // Se configura una sola vez acá — los microservicios no necesitan cors propio
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
   : ['http://localhost:3001', 'http://localhost:8081']; // web backoffice + expo
 
 app.get(['/', '/health', '/api', '/api/health'], (_req, res) => {
@@ -112,7 +112,8 @@ async function verifyToken(req, res, next) {
   let payload;
   try {
     payload = jwt.verify(token, secret);
-  } catch {
+  } catch (err) {
+    console.error(`[Gateway Auth] JWT verification failed:`, err.message);
     return res.status(401).json({ error: 'Token inválido o expirado' });
   }
 
