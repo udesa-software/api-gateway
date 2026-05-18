@@ -62,6 +62,7 @@ const USERS_SERVICE_URL = process.env.USERS_SERVICE_URL || 'http://localhost:300
 const FRIENDS_SERVICE_URL = process.env.FRIENDS_SERVICE_URL || 'http://localhost:3001';
 const LOCATION_SERVICE_URL = process.env.LOCATION_SERVICE_URL || 'http://localhost:3002';
 const BACKOFFICE_SERVICE_URL = process.env.BACKOFFICE_SERVICE_URL || 'http://localhost:3003';
+const NOTIFICATIONS_SERVICE_URL = process.env.NOTIFICATIONS_SERVICE_URL || 'http://localhost:8080';
 
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
@@ -171,6 +172,14 @@ app.use(createProxyMiddleware({
   target: LOCATION_SERVICE_URL,
   changeOrigin: true,
   pathFilter: '/api/locations',
+}));
+
+//  PROXY HACIA NOTIFICATIONS SERVICE
+app.use(createProxyMiddleware({
+  target: NOTIFICATIONS_SERVICE_URL,
+  changeOrigin: true,
+  pathFilter: '/api/notifications',
+  pathRewrite: { '^/api/notifications': '' },
 }));
 
 //  RUTA NO ENCONTRADA 
