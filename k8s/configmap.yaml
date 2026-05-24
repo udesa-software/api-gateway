@@ -10,3 +10,4 @@ data:
   LOCATION_SERVICE_URL: "http://location:3000"
   BACKOFFICE_SERVICE_URL: "http://backoffice:3000"
   ALLOWED_ORIGINS: "https://tds-group-3.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
+  NOTIFICATIONS_SERVICE_URL: "http://notifications:8080"
