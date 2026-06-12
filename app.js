@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const Redis = require('ioredis');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
+const { logger } = require('./observability/logger');
 
 const REDIS_URL = process.env.REDIS_URL;
 let redisClient = null;
@@ -15,9 +16,9 @@ if (REDIS_URL) {
     enableOfflineQueue: false,
     commandTimeout: 2000,
   });
-  redisClient.on('error', (err) => console.error('[Redis] connection error:', err.message));
+  redisClient.on('error', (err) => logger.error({ err: err.message, event: 'redis.connection_error' }, 'redis.connection_error'));
 } else {
-  console.log('[Redis] No REDIS_URL provided. Skipping Redis features (token revocation).');
+  logger.warn({ event: 'redis.not_configured' }, 'redis.not_configured: token revocation disabled');
 }
 
 const app = express();
@@ -49,11 +50,25 @@ const globalRateLimiter = rateLimit({
 
 app.use(globalRateLimiter);
 
-//  HEADER DE TRAZABILIDAD 
-// identifica qué instancia del gateway respondió
-app.use((req, _res, next) => {
-  console.log(`[Gateway] ${req.method} ${req.url}`);
+//  HEADER DE TRAZABILIDAD + REQUEST LOGGING
+// identifica qué instancia del gateway respondió y loggea cada request con duración
+const SKIP_LOG = new Set(['/', '/health', '/api', '/api/health']);
+
+app.use((req, res, next) => {
   req.headers['x-gateway'] = 'udesa-migos-gateway';
+
+  if (SKIP_LOG.has(req.path)) return next();
+
+  const start = Date.now();
+  res.on('finish', () => {
+    const duration_ms = Date.now() - start;
+    const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+    logger[level](
+      { method: req.method, path: req.path, status: res.statusCode, duration_ms },
+      `${res.statusCode} ${req.method} ${req.path}`,
+    );
+  });
+
   next();
 });
 
@@ -132,7 +147,7 @@ async function verifyToken(req, res, next) {
         return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
       }
     } catch (err) {
-      console.error('[Redis] skip verification due to error:', err.message);
+      logger.error({ err: err.message, event: 'redis.verification_error' }, 'redis.verification_error');
     }
   }
 
@@ -149,8 +164,8 @@ app.use(createProxyMiddleware({
   target: USERS_SERVICE_URL,
   changeOrigin: true,
   pathFilter: ['/api/users', '/api/auth'],
-  onProxyRes: (proxyRes, req, res) => {
-    console.log(`[Gateway] Proxy response from UsersService: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+  onError: (err, req) => {
+    logger.error({ err: err.message, target: 'users', path: req.path }, 'proxy.upstream_error');
   }
 }));
 
@@ -190,13 +205,12 @@ app.use(createProxyMiddleware({
   pathFilter: '/api/ai',
 }));
 
-//  RUTA NO ENCONTRADA 
+//  RUTA NO ENCONTRADA
 app.use((req, res) => {
-  console.log(`[Gateway] 404 Not Found: ${req.method} ${req.url}`);
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
-  console.log(`API Gateway running on port ${PORT}`);
+  logger.info({ port: PORT, event: 'gateway.started' }, 'api-gateway started');
 });
