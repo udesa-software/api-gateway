@@ -6,6 +6,7 @@ const Redis = require('ioredis');
 const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
 const { logger } = require('./observability/logger');
+const { randomUUID } = require('crypto');
 
 const REDIS_URL = process.env.REDIS_URL;
 let redisClient = null;
@@ -56,14 +57,19 @@ const SKIP_LOG = new Set(['/', '/health', '/api', '/api/health']);
 
 app.use((req, res, next) => {
   req.headers['x-gateway'] = 'udesa-migos-gateway';
+  if (!req.headers['x-request-id']) {
+    req.headers['x-request-id'] = randomUUID();
+  }
 
   if (SKIP_LOG.has(req.path)) return next();
 
   const start = Date.now();
+  req.log = logger.child({ request_id: req.headers['x-request-id'] });
+
   res.on('finish', () => {
     const duration_ms = Date.now() - start;
     const level = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
-    logger[level](
+    req.log[level](
       { method: req.method, path: req.path, status: res.statusCode, duration_ms },
       `${res.statusCode} ${req.method} ${req.path}`,
     );
@@ -165,7 +171,7 @@ app.use(createProxyMiddleware({
   changeOrigin: true,
   pathFilter: ['/api/users', '/api/auth'],
   onError: (err, req) => {
-    logger.error({ err: err.message, target: 'users', path: req.path }, 'proxy.upstream_error');
+    (req.log ?? logger).error({ err: err.message, target: 'users', path: req.path }, 'proxy.upstream_error');
   }
 }));
 
