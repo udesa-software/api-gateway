@@ -14,7 +14,8 @@
     "express-rate-limit": "^8.3.1",
     "http-proxy-middleware": "^3.0.5",
     "ioredis": "^5.6.1",
-    "jsonwebtoken": "^9.0.2"
+    "jsonwebtoken": "^9.0.2",
+    "pino": "^10.3.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"
