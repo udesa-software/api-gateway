@@ -209,6 +209,12 @@ app.use(createProxyMiddleware({
   target: AI_SERVICE_URL,
   changeOrigin: true,
   pathFilter: '/api/ai',
+  onProxyReq: (proxyReq, req, res) => {
+    console.log(`[Gateway] Proxying ${req.method} ${req.url} to AI service`);
+  },
+  onProxyRes: (proxyRes, req, res) => {
+    console.log(`[Gateway] Proxy response from AIService: ${proxyRes.statusCode} for ${req.method} ${req.url}`);
+  }
 }));
 
 //  RUTA NO ENCONTRADA
