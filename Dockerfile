@@ -6,6 +6,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY app.js .
+COPY auth.js .
 COPY observability/ ./observability/
 
 CMD ["node", "app.js"]
