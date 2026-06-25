@@ -7,6 +7,7 @@ const { createProxyMiddleware } = require('http-proxy-middleware');
 const { rateLimit } = require('express-rate-limit');
 const { logger } = require('./observability/logger');
 const { randomUUID } = require('crypto');
+const { createAuthHelpers } = require('./auth');
 
 const REDIS_URL = process.env.REDIS_URL;
 let redisClient = null;
@@ -89,76 +90,13 @@ const AI_SERVICE_URL = process.env.AI_SERVICE_URL || 'http://localhost:8001';
 const JWT_SECRET = process.env.JWT_SECRET;
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET;
 
-//  RUTAS PÚBLICAS (no requieren JWT) 
-const PUBLIC_PATHS_PREFIX = [
-  '/api/auth/login',
-  '/api/auth/register',
-  '/api/users/register',
-  '/api/auth/verify-email',
-  '/api/auth/resend-verification',
-  '/api/auth/forgot-password',
-  '/api/auth/reset-password',
-  '/api/auth/refresh',
-  '/api/admin/auth/login',
-];
-
-const PUBLIC_PATHS_EXACT = [
-  '/',
-  '/api',
-  '/health',
-  '/api/health',
-];
-
-function isPublicPath(path) {
-  return PUBLIC_PATHS_EXACT.includes(path) || PUBLIC_PATHS_PREFIX.some((p) => path.startsWith(p));
-}
-
-//  VERIFICACIÓN DE TOKEN_VERSION 
-// Si el request trae JWT, verifica firma + llama al users service para
-// confirmar que el token no fue revocado (token_version vigente).
-// Rutas públicas y requests sin token pasan directo.
-async function verifyToken(req, res, next) {
-  const authHeader = req.headers['authorization'];
-
-  // Sin token o ruta pública → dejar pasar (el microservicio rechazará si lo necesita)
-  if (!authHeader || !authHeader.startsWith('Bearer ') || isPublicPath(req.path)) {
-    return next();
-  }
-
-  const token = authHeader.slice(7);
-
-  // 1. Determinar qué secret usar según la ruta
-  const isAdminRoute = req.path.startsWith('/api/admin');
-  const secret = isAdminRoute ? ADMIN_JWT_SECRET : JWT_SECRET;
-
-  // 2. Verificar firma del JWT
-  let payload;
-  try {
-    payload = jwt.verify(token, secret);
-  } catch {
-    return res.status(401).json({ error: 'Token inválido o expirado' });
-  }
-
-  // 3. Los tokens de admin tienen payload.role — el users service los valida internamente
-  if (payload.role) {
-    return next();
-  }
-
-  // 3. Verificar token_version contra Redis (O(1), sin llamada a users service)
-  // Se saltea si Redis no está configurado.
-  if (redisClient) {
-    try {
-      const revokedVersion = await redisClient.get(`revoked:${payload.sub}`);
-      if (revokedVersion !== null && payload.token_version < parseInt(revokedVersion, 10)) {
-        return res.status(401).json({ error: 'Sesión revocada. Iniciá sesión de nuevo.' });
-      }
-    } catch (err) {
-      logger.error({ err: err.message, event: 'redis.verification_error' }, 'redis.verification_error');
-    }
-  }
-
-  next();
-}
+const { isPublicPath, verifyToken } = createAuthHelpers({
+  jwt,
+  redisClient,
+  userSecret: JWT_SECRET,
+  adminSecret: ADMIN_JWT_SECRET,
+  logger,
+});
 
 app.use(verifyToken);
 
@@ -216,7 +154,11 @@ app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
-  logger.info({ port: PORT, event: 'gateway.started' }, 'api-gateway started');
-});
+if (require.main === module) {
+  const PORT = process.env.PORT || 4000;
+  app.listen(PORT, () => {
+    logger.info({ port: PORT, event: 'gateway.started' }, 'api-gateway started');
+  });
+}
+
+module.exports = { app, isPublicPath, verifyToken };
