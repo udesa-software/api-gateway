@@ -12,3 +12,4 @@ data:
   ALLOWED_ORIGINS: "https://tds-group-3.tds-linar.udesa.edu.ar,http://localhost:3001,http://localhost:8081"
   NOTIFICATIONS_SERVICE_URL: "http://notifications:8080"
   AI_SERVICE_URL: "http://ai-service:8001"
+  SERVICE_NAME: "api-gateway"

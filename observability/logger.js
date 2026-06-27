@@ -34,7 +34,7 @@ function pushToLoki(line) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2000);
 
-  fetch(`${lokiUrl}/loki/api/v1/push`, {
+  fetch(`${lokiUrl.trim()}/loki/api/v1/push`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

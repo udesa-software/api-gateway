@@ -47,6 +47,21 @@ spec:
                 secretKeyRef:
                   name: api-gateway-secret
                   key: INTERNAL_SECRET
+            - name: LOKI_URL
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: LOKI_URL
+            - name: LOKI_USER
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: LOKI_USER
+            - name: LOKI_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: api-gateway-secret
+                  key: LOKI_TOKEN
           livenessProbe:
             httpGet:
               path: /health
