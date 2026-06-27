@@ -41,6 +41,9 @@ jobs:
           ADMIN_JWT_SECRET: ${{ secrets.ADMIN_JWT_SECRET }}
           INTERNAL_SECRET: ${{ secrets.INTERNAL_SECRET }}
           REDIS_URL: ${{ secrets.REDIS_URL }}
+          LOKI_URL: ${{ secrets.LOKI_URL }}
+          LOKI_USER: ${{ secrets.LOKI_USER }}
+          LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
           
         run: |
           envsubst < k8s/secret.template.yaml > k8s/secret.yaml
