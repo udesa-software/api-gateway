@@ -9,6 +9,7 @@ function createAuthHelpers({ jwt, redisClient, userSecret, adminSecret, logger }
     '/api/auth/reset-password',
     '/api/auth/refresh',
     '/api/admin/auth/login',
+    '/api/admin/auth/refresh',
   ];
 
   const publicPathExact = [
